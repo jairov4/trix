@@ -1,0 +1,208 @@
+#include "SymbolTable.h"
+#include "wchar.h"
+
+COMPILER Trix
+
+  SymbolTable *tab;
+
+  void Err(wchar_t* msg) {
+    errors->Error(la->line, la->col, msg);
+  }
+
+  void InitDeclarations() { // it must exist
+  }
+
+/*--------------------------------------------------------------------------*/
+CHARACTERS
+  tab           = '\u0009'. /*  9 = tabulator */
+  lf            = '\u000a'. /* 10 = line feed */
+  cr            = '\u000d'. /* 13 = carriage return */
+
+  zero          = '0'.
+  binaryDigit   = zero + "1".
+  zeroToThree   = zero + "123" .
+  octalDigit    = zero + "1234567" .
+  nonZeroDigit  = "123456789".
+  digit         = '0' + nonZeroDigit .
+  hexDigit      = digit + "ABCDEFabcdef" .
+  letter        = 'A' .. 'Z' + 'a' .. 'z' + '_'.
+
+  char          = ANY - "'" - '\\' - cr - lf.
+  stringChar    = ANY - "\"" - '\\' - cr - lf.
+
+TOKENS
+  ident         = letter { letter | digit }.
+  /*-------------------------------------------------------------------------*/
+  intLit =
+  ( [ "+" | "-" ] zero | nonZeroDigit { digit }
+  | "0x" hexDigit { hexDigit }
+  | "0b" binaryDigit { binaryDigit }
+  | "0o" octalDigit { octalDigit }
+  ) [ "u" | "U" ] [ "b" | "B" | "s" | "S" | "l" | "L" ].
+  /*-------------------------------------------------------------------------*/
+  floatLit =
+    ["+" | "-"] "." digit {digit}
+    [("e" | "E") ["+" | "-"] digit {digit}]
+    [ "F" | "f" | "D" | "d" ]
+  | ["+" | "-"] digit {digit}
+    ( "." {digit}
+      [("e" | "E" ) ["+" | "-"] digit {digit} ]
+      [ "F" | "f" | "D" | "d" ]
+    | ("e" | "E") ["+" | "-"] digit {digit}
+      [ "F" | "f" | "D" | "d" ]
+    | "F" | "f" | "D" | "d"
+    ).
+  /*-------------------------------------------------------------------------*/
+  charLit =
+    "'" ( char
+        | "\\" ( "b" | "t" | "n" | "f" | "r" | "\"" | "\'" | "\\"
+               | "u" { "u" } hexDigit hexDigit hexDigit hexDigit
+               | zeroToThree [ octalDigit ] [ octalDigit ]
+               | octalDigit [ octalDigit ]
+               )
+        )
+    "'".
+  /*-------------------------------------------------------------------------*/
+  stringLit =
+    "\"" { stringChar
+         | "\\" ( "b" | "t" | "n" | "f" | "r" | "\"" | "\'" | "\\"
+                | "u" { "u" } hexDigit hexDigit hexDigit hexDigit
+                | zeroToThree [ octalDigit ] [ octalDigit ]
+                | octalDigit [ octalDigit ]
+                )
+         }
+    "\"".
+
+  /*----- keyword names needed in LL(1) resolvers -----*/
+
+  /*----- operators and special characters needed in LL(1) resolvers --------------*/
+
+COMMENTS FROM "/*" TO "*/" NESTED
+COMMENTS FROM "//" TO cr lf
+
+IGNORE cr + lf + tab
+
+PRODUCTIONS
+
+/*------------------------------------------------------------------------*/
+Ident<wchar_t* &name>
+=
+ident                  (. name = coco_string_create(t->val); .)
+.
+/*------------------------------------------------------------------------*/
+FQIdent<wchar_t* &name>
+=
+ident { '.' ident }    (. name = coco_string_create(t->val); .)
+.
+
+DeclEnum (. wchar_t* name; .)
+=
+"enum" Ident<name>
+[ '{' Ident<name> { ',' Ident<name> } '}' ].
+
+TypeRef (. wchar_t* name; .)
+=
+( FQIdent<name> [ '<' TypeRef { ',' TypeRef } '>' ] { '[' [ TypeRef ] ']' }
+| '<' TypeRef { ',' TypeRef } '>'
+).
+
+TypedIdent (. wchar_t* name; .)
+=
+TypeRef Ident<name>.
+
+DeclFunArgs (. wchar_t* name; .)
+=
+[ "this" ] TypedIdent { ',' TypedIdent }.
+
+InfixOp
+= "="
+| "||"
+| "&&"
+| "|"
+| "^"
+| "&"
+| "=="
+| "!="
+| "<"
+| ">"
+| "<="
+| ">="
+| "<<"
+| ">>"
+| "+"
+| "-"
+| "*"
+| "/"
+| "%"
+.
+
+PrefixOp
+= "!"
+| "~"
+| "+"
+| "-"
+.
+
+TermExpr (. wchar_t* name; .)
+=
+{ PrefixOp }
+( Ident<name>
+| '(' Expr ')'
+| intLit
+| floatLit
+| charLit
+| stringLit
+| "null"
+)
+{ '[' Expr ']'
+| '(' [ Expr { ',' Expr } ] ')'
+| '.' Ident<name>
+}.
+
+Expr
+=
+TermExpr { InfixOp TermExpr }.
+
+FunBody
+=
+Expr { ';' Expr }.
+
+DeclSym
+=
+TypedIdent [ '(' [ DeclFunArgs ] ')' '{' [ FunBody ] '}' ]
+.
+
+DeclStructItem
+=
+["private"]
+( DeclSym
+| DeclEnum
+).
+
+DeclStruct (. wchar_t* name; .)
+=
+["private"] "struct" Ident<name> '{' [ DeclStructItem { ';' DeclStructItem  } ] '}'.
+
+DeclNamespace  (. wchar_t* name; .)
+=
+"namespace" FQIdent<name>
+'{'
+{ ImportClause
+| DeclStruct
+| DeclNamespace
+}
+'}'.
+
+ImportClause (. wchar_t* name; InitDeclarations(); .)
+=
+( "from" FQIdent<name> "import" Ident<name> ';'
+| "import" FQIdent<name> ';'
+).
+
+Trix (. wchar_t* name; InitDeclarations(); .)
+=
+{ ImportClause
+| DeclNamespace
+}.
+
+END Trix.

@@ -1,0 +1,11 @@
+from System import Random;
+
+namespace Skivent.Test {
+    struct Person {
+        int algo;
+        Skivent.Test.Person algo;
+        int function(string a1, int[string] a2) {
+        
+        }
+    }
+}
