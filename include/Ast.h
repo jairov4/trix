@@ -2,8 +2,12 @@
 #define __AST_H__
 
 #include <wstring>
+#include <vector>
 
 namespace trix {
+
+  template<T> using v = std::vector<T>;
+  template<T> using r = std::shared_ptr<T>;
 
   class FQIdentifier {
   public:
@@ -109,7 +113,15 @@ namespace trix {
 
   class DeclNamespaceItem {
   public:
+  }
+
+  class DeclNamespaceImport : public DeclNamespaceItem {
+  public:
     r<ImportClause> Import;
+  }
+
+  class DeclNamespaceNamespace : public DeclNamespaceItem {
+  public:
     r<DeclNamespace> Namespace;
   }
 
@@ -117,6 +129,35 @@ namespace trix {
   public:
     r<FQIdentifier> Identifier;
     v<DeclNamespaceItem> Items;
+  }
+
+  class CompilationUnitNamespace : public CompilationUnitItem {
+  public:
+    r<DeclNamespace> Namespace;
+  }
+
+  class CompilationUnitImport : public CompilationUnitItem {
+  public:
+    r<ImportClause> Import;
+  }
+
+  class CompilationUnitNamespace : public CompilationUnitItem {
+  public:
+    r<DeclNamespace> Namespace;
+  }
+
+  enum CompilationUnitItemTypeCode {
+    Namespace, Import
+  }
+
+  class CompilationUnitItem {
+  public:
+    CompilationUnitItemTypeCode Type;
+  }
+
+  class CompilationUnit {
+  public:
+    v<CompilationUnitItem> Items;
   }
 }
 

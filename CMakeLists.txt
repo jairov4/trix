@@ -11,7 +11,15 @@ include_directories(
   "${LLVM_INCLUDE_DIRS}"
 )
 
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/generated")
+
 add_definitions(${LLVM_DEFINITIONS})
+
+IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  set(COCO_PATH "tools/Coco-osx")
+ELSEIF(WIN32)
+  set(COCO_PATH "tools/Coco-win.exe")
+ENDIF()
 
 add_custom_command(
 OUTPUT
@@ -25,7 +33,7 @@ DEPENDS
   src/Parser.frame
   src/Scanner.frame
 COMMAND
-  tools/coco.exe ARGS src/Trix.atg -namespace trix -frames src -o "${CMAKE_CURRENT_BINARY_DIR}/generated"
+  "${COCO_PATH}" ARGS src/Trix.atg -namespace trix -frames src -o "${CMAKE_CURRENT_BINARY_DIR}/generated"
 WORKING_DIRECTORY
   "${CMAKE_CURRENT_SOURCE_DIR}"
 )

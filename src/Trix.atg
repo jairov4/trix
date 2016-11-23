@@ -1,5 +1,7 @@
-#include "SymbolTable.h"
-#include "wchar.h"
+#include <wchar.h>
+
+#include <SymbolTable.h>
+#include <Ast.h>
 
 COMPILER Trix
 
@@ -181,7 +183,7 @@ DeclStructItem
 
 DeclStruct (. wchar_t* name; .)
 =
-["private"] "struct" Ident<name> '{' [ DeclStructItem { ';' DeclStructItem  } ] '}'.
+[ "private" ] "struct" Ident<name> '{' [ DeclStructItem { ';' DeclStructItem  } ] '}'.
 
 DeclNamespace  (. wchar_t* name; .)
 =
