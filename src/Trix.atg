@@ -14,7 +14,7 @@ COMPILER Trix
   void InitDeclarations() { // it must exist
   }
 
-/*--------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------*/
 CHARACTERS
   tab           = '\u0009'. /*  9 = tabulator */
   lf            = '\u000a'. /* 10 = line feed */
@@ -34,14 +34,14 @@ CHARACTERS
 
 TOKENS
   ident         = letter { letter | digit }.
-  /*-------------------------------------------------------------------------*/
+  /*--------------------------------------------------------------------------*/
   intLit =
   ( [ "+" | "-" ] zero | nonZeroDigit { digit }
   | "0x" hexDigit { hexDigit }
   | "0b" binaryDigit { binaryDigit }
   | "0o" octalDigit { octalDigit }
   ) [ "u" | "U" ] [ "b" | "B" | "s" | "S" | "l" | "L" ].
-  /*-------------------------------------------------------------------------*/
+  /*--------------------------------------------------------------------------*/
   floatLit =
     ["+" | "-"] "." digit {digit}
     [("e" | "E") ["+" | "-"] digit {digit}]
@@ -54,7 +54,7 @@ TOKENS
       [ "F" | "f" | "D" | "d" ]
     | "F" | "f" | "D" | "d"
     ).
-  /*-------------------------------------------------------------------------*/
+  /*--------------------------------------------------------------------------*/
   charLit =
     "'" ( char
         | "\\" ( "b" | "t" | "n" | "f" | "r" | "\"" | "\'" | "\\"
@@ -64,7 +64,7 @@ TOKENS
                )
         )
     "'".
-  /*-------------------------------------------------------------------------*/
+  /*--------------------------------------------------------------------------*/
   stringLit =
     "\"" { stringChar
          | "\\" ( "b" | "t" | "n" | "f" | "r" | "\"" | "\'" | "\\"
@@ -75,9 +75,9 @@ TOKENS
          }
     "\"".
 
-  /*----- keyword names needed in LL(1) resolvers -----*/
+  /*----- keyword names needed in LL(1) resolvers ----------------------------*/
 
-  /*----- operators and special characters needed in LL(1) resolvers --------------*/
+  /*----- operators and special characters needed in LL(1) resolvers ---------*/
 
 COMMENTS FROM "/*" TO "*/" NESTED
 COMMENTS FROM "//" TO cr lf
@@ -86,15 +86,17 @@ IGNORE cr + lf + tab
 
 PRODUCTIONS
 
-/*------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------*/
 Ident<wchar_t* &name>
 =
 ident                  (. name = coco_string_create(t->val); .)
 .
-/*------------------------------------------------------------------------*/
-FQIdent<wchar_t* &name>
+/*----------------------------------------------------------------------------*/
+FQIdent<FQIdentifier& id>
 =
-ident { '.' ident }    (. name = coco_string_create(t->val); .)
+ident              (. id.Identifiers.push_back(t->val); .)
+{ '.' ident        (. id.Identifiers.push_back(t->val); .)
+}
 .
 
 DeclEnum (. wchar_t* name; .)
@@ -102,7 +104,7 @@ DeclEnum (. wchar_t* name; .)
 "enum" Ident<name>
 [ '{' Ident<name> { ',' Ident<name> } '}' ].
 
-TypeRef (. wchar_t* name; .)
+TypeRef (. FQIdentifier name; .)
 =
 ( FQIdent<name> [ '<' TypeRef { ',' TypeRef } '>' ] { '[' [ TypeRef ] ']' }
 | '<' TypeRef { ',' TypeRef } '>'
@@ -112,7 +114,7 @@ TypedIdent (. wchar_t* name; .)
 =
 TypeRef Ident<name>.
 
-DeclFunArgs (. wchar_t* name; .)
+DeclFunArgs
 =
 [ "this" ] TypedIdent { ',' TypedIdent }.
 
@@ -183,27 +185,36 @@ DeclStructItem
 
 DeclStruct (. wchar_t* name; .)
 =
-[ "private" ] "struct" Ident<name> '{' [ DeclStructItem { ';' DeclStructItem  } ] '}'.
+[ "private" ] "struct" Ident<name>
+'{' [ DeclStructItem { ';' DeclStructItem  } ] '}'.
 
-DeclNamespace  (. wchar_t* name; .)
+DeclNamespace
+(.
+FQIdentifier name;
+trix::ImportClause importClause;
+.)
 =
 "namespace" FQIdent<name>
 '{'
-{ ImportClause
+{ ImportClause<importClause>
 | DeclStruct
 | DeclNamespace
 }
 '}'.
 
-ImportClause (. wchar_t* name; InitDeclarations(); .)
+ImportClause<trix::ImportClause& importClause>
+(.
+wchar_t* id;
+InitDeclarations();
+.)
 =
-( "from" FQIdent<name> "import" Ident<name> ';'
-| "import" FQIdent<name> ';'
+( "from" FQIdent<importClause.Namespace> "import" Ident<id> ';'
+| "import" FQIdent<importClause.Resource> ';'
 ).
 
-Trix (. wchar_t* name; InitDeclarations(); .)
+Trix (. trix::ImportClause import; InitDeclarations(); .)
 =
-{ ImportClause
+{ ImportClause<import>
 | DeclNamespace
 }.
 
