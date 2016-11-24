@@ -14,6 +14,26 @@ COMPILER Trix
   void InitDeclarations() { // it must exist
   }
 
+  template<typename T>
+  std::shared_ptr<T> ref(T v) {
+    return std::make_shared<T>(v);
+  }
+
+  template<typename T>
+  std::shared_ptr<T> ref() {
+    return std::make_shared<T>();
+  }
+
+  template<typename T>
+  void add(v<T> col, T val) {
+    col.push_back(val);
+  }
+
+  template<typename T>
+  void add_ref(vr<T> col, r<T> val) {
+    col.push_back(val);
+  }
+
 /*----------------------------------------------------------------------------*/
 CHARACTERS
   tab           = '\u0009'. /*  9 = tabulator */
@@ -87,37 +107,61 @@ IGNORE cr + lf + tab
 PRODUCTIONS
 
 /*----------------------------------------------------------------------------*/
-Ident<wchar_t* &name>
+Ident<string &name>
 =
-ident                  (. name = coco_string_create(t->val); .)
+ident                  (. name = t->val; .)
 .
 /*----------------------------------------------------------------------------*/
-FQIdent<FQIdentifier& id>
+FQIdent<ast::FQIdentifier& id> (.
+  id.Identifiers.clear();
+.)
 =
-ident              (. id.Identifiers.push_back(t->val); .)
-{ '.' ident        (. id.Identifiers.push_back(t->val); .)
+ident              (. add(id.Identifiers, string(t->val)); .)
+{ '.' ident        (. add(id.Identifiers, string(t->val)); .)
 }
 .
-
-DeclEnum (. wchar_t* name; .)
+/*----------------------------------------------------------------------------*/
+DeclEnum (.
+  string name;
+.)
 =
 "enum" Ident<name>
-[ '{' Ident<name> { ',' Ident<name> } '}' ].
-
-TypeRef (. FQIdentifier name; .)
+[ '{' Ident<name> { ',' Ident<name> } '}' ]
+.
+/*----------------------------------------------------------------------------*/
+TypeRef<ast::TypeRef& type>
 =
-( FQIdent<name> [ '<' TypeRef { ',' TypeRef } '>' ] { '[' [ TypeRef ] ']' }
-| '<' TypeRef { ',' TypeRef } '>'
-).
-
-TypedIdent (. wchar_t* name; .)
+(. ast::TypeRef type2; .)
+( FQIdent<type.Identifier>
+  [ '<' TypeRef<type2>
+    (. add(type.GenericArguments, type2); .)
+    { ',' TypeRef<type2>
+      (. add(type.GenericArguments, type2); .)
+    }
+    '>'
+  ]
+  { '[' [ TypeRef<type2> ] ']' }
+| '<' TypeRef<type2> { ',' TypeRef<type2> } '>'
+)
+.
+/*----------------------------------------------------------------------------*/
+TypedIdent<ast::TypeRef& type, string& name>
 =
-TypeRef Ident<name>.
-
-DeclFunArgs
+TypeRef<type> Ident<name>
+.
+/*----------------------------------------------------------------------------*/
+DeclFunArgs<ast::DeclFunction& fn>
 =
-[ "this" ] TypedIdent { ',' TypedIdent }.
-
+(. ast::DeclFunctionArgument arg; .)
+[ "this" ]
+TypedIdent<arg.Type, arg.Identifier>
+(. add(fn.Arguments, arg); .)
+{
+  ',' TypedIdent<arg.Type, arg.Identifier>
+  (. add(fn.Arguments, arg); .)
+}
+.
+/*----------------------------------------------------------------------------*/
 InfixOp
 = "="
 | "||"
@@ -139,15 +183,17 @@ InfixOp
 | "/"
 | "%"
 .
-
+/*----------------------------------------------------------------------------*/
 PrefixOp
 = "!"
 | "~"
 | "+"
 | "-"
 .
-
-TermExpr (. wchar_t* name; .)
+/*----------------------------------------------------------------------------*/
+TermExpr (.
+  string name;
+.)
 =
 { PrefixOp }
 ( Ident<name>
@@ -161,61 +207,104 @@ TermExpr (. wchar_t* name; .)
 { '[' Expr ']'
 | '(' [ Expr { ',' Expr } ] ')'
 | '.' Ident<name>
-}.
-
+}
+.
+/*----------------------------------------------------------------------------*/
 Expr
 =
-TermExpr { InfixOp TermExpr }.
-
+TermExpr { InfixOp TermExpr }
+.
+/*----------------------------------------------------------------------------*/
 FunBody
 =
-Expr { ';' Expr }.
-
-DeclSym
-=
-TypedIdent [ '(' [ DeclFunArgs ] ')' '{' [ FunBody ] '}' ]
+Expr { ';' Expr }
 .
-
-DeclStructItem
+/*----------------------------------------------------------------------------*/
+DeclSym<ast::DeclStruct& declStruct, bool isPrivate>
 =
-["private"]
-( DeclSym
-| DeclEnum
-).
-
-DeclStruct (. wchar_t* name; .)
-=
-[ "private" ] "struct" Ident<name>
-'{' [ DeclStructItem { ';' DeclStructItem  } ] '}'.
-
-DeclNamespace
+(. ast::TypeRef type; string identifier; bool isFunction = false; .)
+TypedIdent<type, identifier>
+[
+  (.
+    auto fn = ref<ast::DeclFunction>();
+    isFunction = true;
+    fn->IsPrivate = isPrivate;
+    fn->Identifier = identifier;
+    fn->Type = type;
+  .)
+  '(' [ DeclFunArgs<*fn> ] ')'
+  '{' [ FunBody ] '}'
+  (. add_ref<ast::ADeclStructItem>(declStruct.Items, fn); .)
+]
 (.
-FQIdentifier name;
-trix::ImportClause importClause;
+  if(!isFunction) {
+    auto sym = ref<ast::DeclSymbol>();
+    sym->IsPrivate = isPrivate;
+    sym->Identifier = identifier;
+    sym->Type = type;
+    add_ref<ast::ADeclStructItem>(declStruct.Items, sym);
+  }
+.)
+.
+/*----------------------------------------------------------------------------*/
+DeclStructItem<ast::DeclStruct& declStruct> (.
+  bool IsPrivate = false;
 .)
 =
-"namespace" FQIdent<name>
+[ "private" (. IsPrivate = true; .) ]
+( DeclSym<declStruct, IsPrivate>
+| DeclEnum
+)
+.
+/*----------------------------------------------------------------------------*/
+DeclStruct<ast::DeclStruct& declStruct> (.
+  declStruct.IsPrivate = false;
+.)
+=
+[ "private" (. declStruct.IsPrivate = true; .) ]
+"struct" Ident<declStruct.Identifier>
+'{' [ DeclStructItem<declStruct> { ';' DeclStructItem<declStruct> } ] '}'
+.
+/*----------------------------------------------------------------------------*/
+DeclNamespace<ast::DeclNamespace& ns>
+=
+"namespace" FQIdent<ns.Identifier>
 '{'
-{ ImportClause<importClause>
-| DeclStruct
-| DeclNamespace
-}
-'}'.
+{ (. auto import = ref<ast::DeclNamespaceImport>(); .)
+  ImportClause<(*import).Import>
+  (. add_ref<ast::ADeclNamespaceItem>(ns.Items, import); .)
 
-ImportClause<trix::ImportClause& importClause>
-(.
-wchar_t* id;
-InitDeclarations();
+| (. auto declStruct = ref<ast::DeclStruct>(); .)
+  DeclStruct<*declStruct>
+  (. add_ref<ast::ADeclNamespaceItem>(ns.Items, declStruct); .)
+
+| (. auto nsChild = ref<ast::DeclNamespaceNamespace>(); .)
+  DeclNamespace<(*nsChild).Namespace>
+  (. add_ref<ast::ADeclNamespaceItem>(ns.Items, nsChild); .)
+}
+'}'
+.
+/*----------------------------------------------------------------------------*/
+ImportClause<ast::ImportClause& importClause> (.
+  string id;
+  InitDeclarations();
 .)
 =
 ( "from" FQIdent<importClause.Namespace> "import" Ident<id> ';'
 | "import" FQIdent<importClause.Resource> ';'
-).
-
-Trix (. trix::ImportClause import; InitDeclarations(); .)
+)
+.
+/*----------------------------------------------------------------------------*/
+Trix (.
+  InitDeclarations();
+.)
 =
-{ ImportClause<import>
-| DeclNamespace
-}.
+{ (. ast::ImportClause import; .)
+  ImportClause<import>
+| (. ast::DeclNamespace nsChild; .)
+  DeclNamespace<nsChild>
+}
+.
+/*----------------------------------------------------------------------------*/
 
 END Trix.

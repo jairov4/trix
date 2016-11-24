@@ -1,5 +1,4 @@
-#ifndef __AST_H__
-#define __AST_H__
+#pragma once
 
 #include <string>
 #include <vector>
@@ -7,178 +6,181 @@
 #include <stdint.h>
 
 namespace trix {
-
-  template<typename T> using v = std::vector<T>;
-  template<typename T> using r = std::shared_ptr<T>;
   using string = std::wstring;
+  template<typename T> using r = std::shared_ptr<T>;
+  template<typename T> using v = std::vector<T>;
+  template<typename T> using vr = std::vector<r<T>>;
 
-  class FQIdentifier {
-  public:
-    v<string> Identifiers;
-  };
+  namespace ast {
 
-  enum TypeCode {
-    Boolean,
-    Byte,
-    Char,
-    DateTime,
-    Double,
-    GenericObject,
-    Int16,
-    Int32,
-    Int64,
-    Object,
-    SByte,
-    Single,
-    String,
-    UInt16,
-    UInt32,
-    UInt64
-  };
+    class FQIdentifier {
+    public:
+      v<string> Identifiers;
+    };
 
-  class TypeRef {
-  public:
-    TypeCode Type;
-    v<TypeRef> GenericArguments;
-    FQIdentifier Identifier;
-  };
+    enum class TypeCode {
+      Boolean,
+      Byte,
+      Char,
+      DateTime,
+      Double,
+      GenericObject,
+      Int16,
+      Int32,
+      Int64,
+      Object,
+      SByte,
+      Single,
+      String,
+      UInt16,
+      UInt32,
+      UInt64
+    };
 
-  class ImportClause {
-  public:
-    FQIdentifier Namespace;
-    FQIdentifier Resource;
-  };
+    class TypeRef {
+    public:
+      TypeCode Type;
+      v<TypeRef> GenericArguments;
+      FQIdentifier Identifier;
+    };
 
-  class DeclStructItem {
-  public:
-    bool IsPrivate;
-  };
+    class ImportClause {
+    public:
+      FQIdentifier Namespace;
+      FQIdentifier Resource;
+    };
 
-  class DeclFunctionArgument {
-  public:
-    string Identifier;
-    TypeRef Type;
-  };
+    class ADeclStructItem {
+    public:
+      bool IsPrivate;
+    };
 
-  enum Operator {
-    Index,
-    Call,
-    Assoc,
-    MemberAccess,
-    PatternMatch,
-    Not,
-    Xor,
-    And,
-    Or,
-    Add,
-    Subtract,
-    Product,
-    Divide,
-    Modulus,
-    BitAnd,
-    BitOr,
-    BitXor,
-    BitNot // Add unary, and binary and n-ary
-  };
+    class DeclFunctionArgument {
+    public:
+      string Identifier;
+      TypeRef Type;
+    };
 
-  enum ExprTypeCode {
-    Literal,
-    SymbolRef,
-    NAry
-  };
+    enum class Operator {
+      Index,
+      Call,
+      Assoc,
+      MemberAccess,
+      PatternMatch,
+      Not,
+      Xor,
+      And,
+      Or,
+      Add,
+      Subtract,
+      Product,
+      Divide,
+      Modulus,
+      BitAnd,
+      BitOr,
+      BitXor,
+      BitNot // Add unary, and binary and n-ary
+    };
 
-  class AExpr {
-  public:
-    ExprTypeCode Type;
-  };
+    enum class ExprTypeCode {
+      Literal,
+      SymbolRef,
+      NAry
+    };
 
-  class LiteralExpr : public AExpr {
-  public:
-    TypeCode Code;
-    int64_t IntegerValue;
-    double FloatValue;
-    uint16_t CharValue;
-    string StringValue;
-  };
+    class AExpr {
+    public:
+      ExprTypeCode Type;
+    };
 
-  class SymbolRefExpr : public AExpr {
-  public:
-    FQIdentifier Identifier;
-  };
+    class LiteralExpr : public AExpr {
+    public:
+      TypeCode Code;
+      int64_t IntegerValue;
+      double FloatValue;
+      uint16_t CharValue;
+      string StringValue;
+    };
 
-  class NAryExpr : public AExpr {
-  public:
-    Operator Operator;
-    v<AExpr> Expressions;
-  };
+    class SymbolRefExpr : public AExpr {
+    public:
+      FQIdentifier Identifier;
+    };
 
-  class DeclFunctionBody {
-  public:
-    v<AExpr> Expressions;
-  };
+    class NAryExpr : public AExpr {
+    public:
+      Operator Operator;
+      v<AExpr> Expressions;
+    };
 
-  class DeclSymbol : public DeclStructItem {
-  public:
-    string Identifier;
-  };
+    class DeclFunctionBody {
+    public:
+      v<AExpr> Expressions;
+    };
 
-  class DeclFunction : public DeclSymbol {
-  public:
-    TypeRef Type;
-    v<DeclFunctionArgument> Arguments;
-    r<DeclFunctionBody> Body;
-  };
+    class DeclSymbol : public ADeclStructItem {
+    public:
+      string Identifier;
+      TypeRef Type;
+    };
 
-  class DeclStruct {
-  public:
-    bool IsPrivate;
-    string Identifier;
-    v<DeclStructItem> Items;
-  };
+    class DeclFunction : public ADeclStructItem {
+    public:
+      string Identifier;
+      TypeRef Type;
+      v<DeclFunctionArgument> Arguments;
+      r<DeclFunctionBody> Body;
+    };
 
-  class ADeclNamespaceItem {
-  public:
-  };
+    class ADeclNamespaceItem {
+    public:
+    };
 
-  class DeclNamespaceImport : public ADeclNamespaceItem {
-  public:
-    ImportClause Import;
-  };
+    class DeclStruct : public ADeclNamespaceItem {
+    public:
+      bool IsPrivate;
+      string Identifier;
+      vr<ADeclStructItem> Items;
+    };
 
-  enum CompilationUnitItemTypeCode {
-    Namespace, Import
-  };
+    class DeclNamespaceImport : public ADeclNamespaceItem {
+    public:
+      ImportClause Import;
+    };
 
-  class ACompilationUnitItem {
-  public:
-    CompilationUnitItemTypeCode Type;
-  };
+    enum class CompilationUnitItemTypeCode {
+      Namespace, Import
+    };
 
-  class DeclNamespace {
-  public:
-    FQIdentifier Identifier;
-    v<ADeclNamespaceItem> Items;
-  };
+    class ACompilationUnitItem {
+    public:
+      CompilationUnitItemTypeCode Type;
+    };
 
-  class DeclNamespaceNamespace : public ADeclNamespaceItem {
-  public:
-    DeclNamespace Namespace;
-  };
+    class DeclNamespace {
+    public:
+      FQIdentifier Identifier;
+      v<r<ADeclNamespaceItem>> Items;
+    };
 
-  class CompilationUnitNamespace : public ACompilationUnitItem {
-  public:
-    DeclNamespace Namespace;
-  };
+    class DeclNamespaceNamespace : public ADeclNamespaceItem {
+    public:
+      DeclNamespace Namespace;
+    };
 
-  class CompilationUnitImport : public ACompilationUnitItem {
-  public:
-    ImportClause Import;
-  };
+    class CompilationUnitNamespace : public ACompilationUnitItem {
+    public:
+      DeclNamespace Namespace;
+    };
 
-  class CompilationUnit {
-  public:
-    v<ACompilationUnitItem> Items;
-  };
+    class CompilationUnitImport : public ACompilationUnitItem {
+    public:
+      ImportClause Import;
+    };
+
+    class CompilationUnit {
+    public:
+      v<ACompilationUnitItem> Items;
+    };
+  }
 }
-
-#endif /* end of include guard: __AST_H__ */

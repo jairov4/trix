@@ -37,13 +37,13 @@ COMMAND
 WORKING_DIRECTORY
   "${CMAKE_CURRENT_SOURCE_DIR}"
 )
-
 add_executable(trix
   src/Trix.cpp
   src/SymbolTable.cpp
   "${CMAKE_CURRENT_BINARY_DIR}/generated/Parser.cpp"
   "${CMAKE_CURRENT_BINARY_DIR}/generated/Scanner.cpp"
 )
+target_compile_features(trix PRIVATE cxx_alias_templates)
 
 llvm_map_components_to_libnames(llvm_libs support core irreader)
 target_link_libraries(trix ${llvm_libs})
