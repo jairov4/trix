@@ -50,9 +50,17 @@ namespace trix {
       FQIdentifier Resource;
     };
 
+    enum class DeclStructItemTypeCode
+    {
+      Function, Symbol
+    };
+
     class ADeclStructItem {
     public:
+      DeclStructItemTypeCode Type;
       bool IsPrivate;
+      string Identifier;
+      TypeRef EvalType;
     };
 
     class DeclFunctionArgument {
@@ -120,14 +128,10 @@ namespace trix {
 
     class DeclSymbol : public ADeclStructItem {
     public:
-      string Identifier;
-      TypeRef Type;
     };
 
     class DeclFunction : public ADeclStructItem {
     public:
-      string Identifier;
-      TypeRef Type;
       v<DeclFunctionArgument> Arguments;
       r<DeclFunctionBody> Body;
     };

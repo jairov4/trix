@@ -7,31 +7,64 @@ COMPILER Trix
 
   SymbolTable *tab;
 
-  void Err(wchar_t* msg) {
+  void Err(wchar_t* msg)
+  {
     errors->Error(la->line, la->col, msg);
   }
 
-  void InitDeclarations() { // it must exist
+  void InitDeclarations()
+  {
+    // it must exist
   }
 
   template<typename T>
-  std::shared_ptr<T> ref(T v) {
+  std::shared_ptr<T> ref(T v)
+  {
     return std::make_shared<T>(v);
   }
 
   template<typename T>
-  std::shared_ptr<T> ref() {
+  std::shared_ptr<T> ref()
+  {
     return std::make_shared<T>();
   }
 
   template<typename T>
-  void add(v<T> col, T val) {
+  void add(v<T> col, T val)
+  {
     col.push_back(val);
   }
 
   template<typename T>
-  void add_ref(vr<T> col, r<T> val) {
+  void add_ref(vr<T> col, r<T> val)
+  {
     col.push_back(val);
+  }
+
+  ast::FQIdentifier GetTupleTypeIdentifier()
+  {
+    ast::FQIdentifier id;
+    id.Identifiers.push_back(string(L"tuple"));
+    return id;
+  }
+
+  void MakeMap(ast::TypeRef& tgt_val, ast::TypeRef key)
+  {
+    ast::TypeRef t;
+    add(t.Identifier.Identifiers, string(L"map"));
+    t.Type = ast::TypeCode::GenericObject;
+    add(t.GenericArguments, key);
+    add(t.GenericArguments, tgt_val);
+    tgt_val = t;
+  }
+
+  void MakeList(ast::TypeRef& tgt_val)
+  {
+    ast::TypeRef t;
+    add(t.Identifier.Identifiers, string(L"list"));
+    t.Type = ast::TypeCode::GenericObject;
+    add(t.GenericArguments, tgt_val);
+    tgt_val = t;
   }
 
 /*----------------------------------------------------------------------------*/
@@ -129,20 +162,30 @@ DeclEnum (.
 [ '{' Ident<name> { ',' Ident<name> } '}' ]
 .
 /*----------------------------------------------------------------------------*/
-TypeRef<ast::TypeRef& type>
+GenericArguments<ast::TypeRef& type>
 =
 (. ast::TypeRef type2; .)
-( FQIdent<type.Identifier>
-  [ '<' TypeRef<type2>
-    (. add(type.GenericArguments, type2); .)
-    { ',' TypeRef<type2>
-      (. add(type.GenericArguments, type2); .)
-    }
-    '>'
-  ]
-  { '[' [ TypeRef<type2> ] ']' }
-| '<' TypeRef<type2> { ',' TypeRef<type2> } '>'
+(. type.Type = ast::TypeCode::GenericObject; .)
+'<' TypeRef<type2>
+(. add(type.GenericArguments, type2); .)
+{
+  ',' TypeRef<type2>
+  (. add(type.GenericArguments, type2); .)
+}
+'>'
+.
+/*----------------------------------------------------------------------------*/
+TypeRef<ast::TypeRef& type>
+=
+( FQIdent<type.Identifier> [ GenericArguments<type> ]
+| GenericArguments<type> (. type.Identifier = GetTupleTypeIdentifier(); .)
 )
+{
+  '['
+  ( (. ast::TypeRef type2; .) TypeRef<type2> (. MakeMap(type, type2); .)
+  | (. MakeList(type); .) )
+  ']'
+}
 .
 /*----------------------------------------------------------------------------*/
 TypedIdent<ast::TypeRef& type, string& name>
@@ -222,29 +265,29 @@ Expr { ';' Expr }
 /*----------------------------------------------------------------------------*/
 DeclSym<ast::DeclStruct& declStruct, bool isPrivate>
 =
-(. ast::TypeRef type; string identifier; bool isFunction = false; .)
+(. ast::TypeRef type; string identifier; .)
 TypedIdent<type, identifier>
-[
+(
   (.
-    auto fn = ref<ast::DeclFunction>();
-    isFunction = true;
-    fn->IsPrivate = isPrivate;
-    fn->Identifier = identifier;
-    fn->Type = type;
-  .)
-  '(' [ DeclFunArgs<*fn> ] ')'
-  '{' [ FunBody ] '}'
-  (. add_ref<ast::ADeclStructItem>(declStruct.Items, fn); .)
-]
-(.
-  if(!isFunction) {
     auto sym = ref<ast::DeclSymbol>();
     sym->IsPrivate = isPrivate;
     sym->Identifier = identifier;
-    sym->Type = type;
+    sym->Type = ast::DeclStructItemTypeCode::Symbol;
+    sym->EvalType = type;
     add_ref<ast::ADeclStructItem>(declStruct.Items, sym);
-  }
-.)
+  .)
+|
+  (. auto fn = ref<ast::DeclFunction>(); .)
+  '(' [ DeclFunArgs<*fn> ] ')'
+  '{' [ FunBody ] '}'
+  (.
+    fn->IsPrivate = isPrivate;
+    fn->Identifier = identifier;
+    fn->Type = ast::DeclStructItemTypeCode::Function;
+    fn->EvalType = type;
+    add_ref<ast::ADeclStructItem>(declStruct.Items, fn);
+  .)
+)
 .
 /*----------------------------------------------------------------------------*/
 DeclStructItem<ast::DeclStruct& declStruct> (.
@@ -287,7 +330,6 @@ DeclNamespace<ast::DeclNamespace& ns>
 /*----------------------------------------------------------------------------*/
 ImportClause<ast::ImportClause& importClause> (.
   string id;
-  InitDeclarations();
 .)
 =
 ( "from" FQIdent<importClause.Namespace> "import" Ident<id> ';'
