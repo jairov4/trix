@@ -1,0 +1,145 @@
+from System import Random;
+
+interface IRange<T> {
+  T Current();
+  bool Empty();
+  self Forward()
+}
+
+interface IBidirectionalRange<T> : IRange<T> {
+  // self means return the same implementor type
+  self Backward()
+}
+
+interface IFiniteRange {
+  int Length()
+}
+
+interface IRandomAccessFinite<T> : IBidirectionalRange<T> {
+  T [int index];
+  self Slice(int begin, int length);
+  self Insert(int index, T value);
+}
+
+interface ICollection<T> : IRange<T> {
+  bool Contains(T v);
+  self Add(T v);
+  self Remove(T v)
+}
+
+interface IDictionary<TKey, TValue> : ICollection<tuple<TKey, TValue> {
+  bool ContainsKey(TKey key);
+  <bool, TKey, TValue, bool> Lookup(TKey key);
+  <bool, TValue> AddOrUpdate(TKey k, TValue v);
+  <bool, TValue> AddIfNotExists(TKey k, TValue v);
+  TValue [TKey key];
+}
+
+/* Tipos de la biblioteca estandar implementando interfaces
+dllist<T> : IBidirectionalRange<T>
+list<T> is T[] : IRandomAccessFinite<T>
+set<T> : ICollection<T>
+sset<T> : ICollection<T>
+map<K,V> is V[K] : IDictionary<K,V>
+*/
+
+// incluida en el lenguaje
+enum null; 
+
+/* equivale a
+enum null { null }
+*/
+
+struct Person {
+  int algo;
+
+  void ImprimirAlgo() {
+    algo2 = algo;
+    algo3 = algo2 + algo
+  }
+
+  int[] FunReturingList() {
+    [2,5,3]
+  }
+
+  int[] FunReturingList2(int n) {
+    [2..n]
+  }
+
+  int[] FunReturningList3() {
+    [x*x for x in 2..10]
+  }
+
+  int[] FunReturningList4(string[] input) {
+    input.Map(x=>x.Lenght).Where(x=>x==4)
+  }
+
+  int[] FunReturningList5(string[] input) {
+    [x.Lenght for x in input where x==4]
+  }
+
+  int[]? FunReturningList6(string[] input) {
+    null
+  }
+
+  choice<int[], byte[], bool, null> FunChoice(Random r) {
+    c = r.NextBoolean();
+    r = [1,2] if c,
+        byte[]([2,2]) if r.NextBoolean(),
+        null if r.NextBoolean()
+        else false
+  }
+
+  void FunPatternMatching(Random r) {
+    case funChoice(r) {
+      true => System.Console.WriteLine("true");
+      false => System.Console.WriteLine("false");
+      a as int[] => System.Console.WriteLine(a);
+      [h|t] as byte[] => System.Console.WriteLine($"first: {h} - others: {t}");
+      [h as int|t] => System.Console.WriteLine();
+    }
+  }
+
+  int FunLoops() {
+    for x in 2..9 where x % 5 != 0 {
+      System.Console.WriteLine("ciclos que siempre terminan " + i);
+      break if x == 3;
+      return x if 4 == x
+    }
+    0
+  }
+
+  int FunUsingTuple(<int,int> vector2d) {
+    <x, y> = vector2d;
+    Math.Sqrt(x*x + y*y)
+  }
+ 
+  int[string] FunUsingDictionary() {
+    d = dict<int,string>();
+    d2 = d.Add(2, "algo");
+    d2.Add(3, "Otra cosa")
+      .Add(4, "Otra mas")
+  }
+
+  set<int> FunUsingSet() {
+    [2, 4, 5]
+  }
+
+  binary FunUsingBitString() {
+    b = 67;
+    r = 95;
+    j = "cadena utf-8";
+    |b:5, r:7, j:64, j, j[3..5]|
+  }
+
+  fun<string, int> FunWithLambda(fun<int> f) {    
+    d = (int a) => f().ToString()
+  }
+
+  int R => algo + funLoops();
+}
+
+int WeirdCalc(this Person p) {
+  p.ImprimirAlgo();
+  p.Age
+}
